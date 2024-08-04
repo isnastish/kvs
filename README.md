@@ -11,4 +11,4 @@ Once your service is running, the simplest way of testing the storage would be t
 
 
 
-> **NOTE:** [feature/transactions-service](https://github.com/isnastish/kvs/tree/feature/transaction-service) branch contains the integration for TXN service using `gRPC` framework and is currently in development.
+> **NOTE:** [feature/transaction-service](https://github.com/isnastish/kvs/tree/feature/transaction-service) branch contains the integration for TXN service using `gRPC` framework and is currently in development.
