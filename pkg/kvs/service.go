@@ -629,6 +629,34 @@ func (s *Service) Close() {
 func (s *Service) Run() error {
 	defer s.txnLogger.Close()
 
+	// NOTE: We cannot run the server, until we read all the transactions from transaction serivce,
+	// so, if there were any in the database OR a file, we put them into memory storage.
+
+	// This should be a part of a service
+	txnErrorChan := make(chan *api.Error)
+	transactionChan := make(chan *api.Transaction)
+
+	_ = txnErrorChan
+	_ = transactionChan
+
+	//////////////////////////////////open an error stream//////////////////////////////////
+	errorStream, err := s.txnClient.ProcessErrors(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		log.Logger.Error("Failed to open an error stream %v", err)
+		return fmt.Errorf("failed to open an error stream %v", err)
+	}
+
+	_ = errorStream
+
+	/////////////////////////////////////Open a stream for writing transactions/////////////////////////////////////
+	writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
+	if err != nil {
+		log.Logger.Error("Failed to open write transactions stream %v", err)
+		return fmt.Errorf("failed to open a stream for writing transactions %v", err)
+	}
+
+	_ = writeTransactionStream
+
 	//////////////////////////////////open a stream for reading transactions//////////////////////////////////
 	readTransactionStream, err := s.txnClient.ReadTransactions(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -645,9 +673,22 @@ func (s *Service) Run() error {
 			log.Logger.Error("Failed to read transaction %v", err)
 			return fmt.Errorf("failed to read transaction %v", err)
 		}
-		_ = transaction
+
+		// Logic for restoring the storage based on transactions
+		switch transaction.TxnType {
+		case api.TxnType_TxnPut:
+
+		case api.TxnType_TxnGet:
+
+		case api.TxnType_TxnDel:
+
+		case api.TxnType_TxnIncr:
+
+		case api.TxnType_TxnIncrBy:
+		}
 	}
 
+	////////////////////////////////////////service logic////////////////////////////////////////
 	s.running = true
 
 	shutdownCtx, cancel := context.WithCancel(context.Background())
