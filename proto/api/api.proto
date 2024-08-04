@@ -9,7 +9,7 @@ option go_package = "github.com/isnastish/kvs/proto/api";
 
 service TransactionService {
     rpc ReadTransactions(google.protobuf.Empty) returns (stream Transaction);
-    rpc WriteTransactions(stream Transaction) returns (google.protobuf.Empty);
+    rpc WriteTransactions(stream Transaction) returns (google.protobuf.Empty); // Try making it bidirectional
     rpc ProcessErrors(google.protobuf.Empty) returns (stream Error);
 }
 
