@@ -9,8 +9,7 @@ option go_package = "github.com/isnastish/kvs/proto/api";
 
 service TransactionService {
     rpc ReadTransactions(google.protobuf.Empty) returns (stream Transaction);
-    rpc WriteTransactions(stream Transaction) returns (google.protobuf.Empty); // Try making it bidirectional
-    rpc ProcessErrors(google.protobuf.Empty) returns (stream Error);
+    rpc WriteTransactions(stream Transaction) returns (google.protobuf.Empty);
 }
 
 enum StorageType {
@@ -50,9 +49,4 @@ message Transaction {
     string key = 4;
     // Might not be the best solution, but not all the events have value.
     optional Value value = 5;
-}
-
-message Error {
-    google.protobuf.Timestamp timestamp = 1;
-    string message = 2;
 }

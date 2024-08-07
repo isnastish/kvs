@@ -22,7 +22,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	TransactionService_ReadTransactions_FullMethodName  = "/api.TransactionService/ReadTransactions"
 	TransactionService_WriteTransactions_FullMethodName = "/api.TransactionService/WriteTransactions"
-	TransactionService_ProcessErrors_FullMethodName     = "/api.TransactionService/ProcessErrors"
 )
 
 // TransactionServiceClient is the client API for TransactionService service.
@@ -31,7 +30,6 @@ const (
 type TransactionServiceClient interface {
 	ReadTransactions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Transaction], error)
 	WriteTransactions(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Transaction, emptypb.Empty], error)
-	ProcessErrors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Error], error)
 }
 
 type transactionServiceClient struct {
@@ -74,32 +72,12 @@ func (c *transactionServiceClient) WriteTransactions(ctx context.Context, opts .
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type TransactionService_WriteTransactionsClient = grpc.ClientStreamingClient[Transaction, emptypb.Empty]
 
-func (c *transactionServiceClient) ProcessErrors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Error], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &TransactionService_ServiceDesc.Streams[2], TransactionService_ProcessErrors_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[emptypb.Empty, Error]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TransactionService_ProcessErrorsClient = grpc.ServerStreamingClient[Error]
-
 // TransactionServiceServer is the server API for TransactionService service.
 // All implementations must embed UnimplementedTransactionServiceServer
 // for forward compatibility.
 type TransactionServiceServer interface {
 	ReadTransactions(*emptypb.Empty, grpc.ServerStreamingServer[Transaction]) error
 	WriteTransactions(grpc.ClientStreamingServer[Transaction, emptypb.Empty]) error
-	ProcessErrors(*emptypb.Empty, grpc.ServerStreamingServer[Error]) error
 	mustEmbedUnimplementedTransactionServiceServer()
 }
 
@@ -115,9 +93,6 @@ func (UnimplementedTransactionServiceServer) ReadTransactions(*emptypb.Empty, gr
 }
 func (UnimplementedTransactionServiceServer) WriteTransactions(grpc.ClientStreamingServer[Transaction, emptypb.Empty]) error {
 	return status.Errorf(codes.Unimplemented, "method WriteTransactions not implemented")
-}
-func (UnimplementedTransactionServiceServer) ProcessErrors(*emptypb.Empty, grpc.ServerStreamingServer[Error]) error {
-	return status.Errorf(codes.Unimplemented, "method ProcessErrors not implemented")
 }
 func (UnimplementedTransactionServiceServer) mustEmbedUnimplementedTransactionServiceServer() {}
 func (UnimplementedTransactionServiceServer) testEmbeddedByValue()                            {}
@@ -158,17 +133,6 @@ func _TransactionService_WriteTransactions_Handler(srv interface{}, stream grpc.
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type TransactionService_WriteTransactionsServer = grpc.ClientStreamingServer[Transaction, emptypb.Empty]
 
-func _TransactionService_ProcessErrors_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(emptypb.Empty)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(TransactionServiceServer).ProcessErrors(m, &grpc.GenericServerStream[emptypb.Empty, Error]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TransactionService_ProcessErrorsServer = grpc.ServerStreamingServer[Error]
-
 // TransactionService_ServiceDesc is the grpc.ServiceDesc for TransactionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,11 +150,6 @@ var TransactionService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "WriteTransactions",
 			Handler:       _TransactionService_WriteTransactions_Handler,
 			ClientStreams: true,
-		},
-		{
-			StreamName:    "ProcessErrors",
-			Handler:       _TransactionService_ProcessErrors_Handler,
-			ServerStreams: true,
 		},
 	},
 	Metadata: "api/api.proto",

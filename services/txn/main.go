@@ -117,14 +117,13 @@ func (l *PostgresTransactionLogger) createTables() error {
 			return fmt.Errorf("failed to create uint keys table %v", err)
 		}
 
-		query := `create table if not exists "uint_transactions" (
-			"id" serial primary key, 
-			"transaction_type" character varying(32) not null, 
-			"key_id" serial, 
-			"value" serial,
-			"timestamp" timestamp not null default now(),
-			foreign key("key_id") references "uint_keys"("id") on delete cascade
-		);`
+		query := `CREATE TABLE IF NOT EXIST "uint_transactions" (
+			"id" SERIAL PRIMARY KEY, 
+			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
+			"key_id" SERIAL, 
+			"value" SERIAL,
+			"timestamp" TIMESTAMP NOT NULL DEFAULT NOW(),
+			FOREIGN KEY("key_id") REFERENCES "uint_keys"("id") ON DELETE CASCADE);`
 
 		_, err = conn.Exec(context.Background(), query)
 		if err != nil {
@@ -141,14 +140,13 @@ func (l *PostgresTransactionLogger) createTables() error {
 			return fmt.Errorf("failed to create float keys table %v", err)
 		}
 
-		query := `create table if not exists "float_transactions" (
-			"id" serial primary key, 
-			"transaction_type" character varying(32) not null, 
-			"key_id" serial,
-			"value" real,
-			"timestamp" timestamp not null default now(),
-			foreign key("key_id") references "float_keys"("id") on delete cascade
-		);`
+		query := `CREATE TABLE IF NOT EXIST "float_transactions" (
+			"id" SERIAL PRIMARY KEY, 
+			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
+			"key_id" SERIAL,
+			"value" REAL,
+			"timestamp" TIMESTAMP NOT NULL DEFAULT NOW(),
+			FOREIGN KEY("key_id") REFERENCES "float_keys"("id") ON DELETE CASCADE);`
 
 		_, err = conn.Exec(context.Background(), query)
 		if err != nil {
@@ -325,9 +323,9 @@ func (s *PostgresTransactionLogger) ReadTransaction() (<-chan *api.Transaction, 
 		// Query Int transactions
 		//
 		{
-			query := `select "type", "key", "value" from "integer_transactions" 
-			join "int_keys" on "int_keys"."id" = "integer_transactions"."key_id"
-			where "int_keys"."id" = ($1);`
+			query := `SELECT "type", "key", "value" FROM "integer_transactions" 
+			JION "int_keys" ON "int_keys"."id" = "integer_transactions"."key_id"
+			WHERE "int_keys"."id" = ($1);`
 
 			transactions, err := s.queryTransactions(conn, api.StorageType_StorageInt, "integer_transactions", "int_keys", query)
 			if err != nil {
@@ -342,9 +340,9 @@ func (s *PostgresTransactionLogger) ReadTransaction() (<-chan *api.Transaction, 
 		// Query Uint transactions
 		//
 		{
-			query := `select "type", "key", "value" from "uint_transactions"
-			join "uint_keys" on "uint_keys"."id" = "uint_transactions"."key_id"
-			where "uint_keys"."id" = ($1);`
+			query := `SELECT "type", "key", "value" FROM "uint_transactions"
+			JOIN "uint_keys" ON "uint_keys"."id" = "uint_transactions"."key_id"
+			WHERE "uint_keys"."id" = ($1);`
 
 			transactions, err := s.queryTransactions(conn, api.StorageType_StorageUint, "uint_transactions", "uint_keys", query)
 			if err != nil {
@@ -359,9 +357,9 @@ func (s *PostgresTransactionLogger) ReadTransaction() (<-chan *api.Transaction, 
 		// Query float transactions
 		//
 		{
-			query := `select "type", "key", "value" from "float_transactions"
-			join "float_keys" on "float_keys"."id" = "float_transactions"."key_id"
-			where "float_keys"."id" = ($1);`
+			query := `SELECT "type", "key", "value" from "float_transactions"
+			JOIN "float_keys" ON "float_keys"."id" = "float_transactions"."key_id"
+			WHERE "float_keys"."id" = ($1);`
 
 			transactions, err := s.queryTransactions(conn, api.StorageType_StorageFloat, "float_transactions", "float_keys", query)
 			if err != nil {
@@ -376,9 +374,9 @@ func (s *PostgresTransactionLogger) ReadTransaction() (<-chan *api.Transaction, 
 		// Query String transactions
 		//
 		{
-			query := `select "type", "key", "value" from "string_transactions"
-			join "string_keys" on "string_keys"."id" = "string_transactions"."key_id"
-			where "string_keys"."id" = ($1);`
+			query := `SELECT "type", "key", "value" FROM "string_transactions"
+			JOIN "string_keys" ON "string_keys"."id" = "string_transactions"."key_id"
+			WHERE "string_keys"."id" = ($1);`
 
 			transactions, err := s.queryTransactions(conn, api.StorageType_StorageStr, "string_transactions", "string_keys", query)
 			if err != nil {
@@ -439,11 +437,6 @@ func (s *TransactionService) ReadTransactions(_ *emptypb.Empty, stream api.Trans
 
 func (s *TransactionService) WriteTransactions(stream api.TransactionService_WriteTransactionsServer) error {
 	log.Logger.Info("Opened stream for writing transactions")
-	return nil
-}
-
-func (s *TransactionService) ProcessErrors(_ *emptypb.Empty, stream api.TransactionService_ProcessErrorsServer) error {
-	log.Logger.Info("Opened stream for processing errors")
 	return nil
 }
 

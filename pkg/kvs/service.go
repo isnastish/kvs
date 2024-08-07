@@ -633,20 +633,8 @@ func (s *Service) Run() error {
 	// so, if there were any in the database OR a file, we put them into memory storage.
 
 	// This should be a part of a service
-	txnErrorChan := make(chan *api.Error)
 	transactionChan := make(chan *api.Transaction)
-
-	_ = txnErrorChan
 	_ = transactionChan
-
-	//////////////////////////////////open an error stream//////////////////////////////////
-	errorStream, err := s.txnClient.ProcessErrors(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		log.Logger.Error("Failed to open an error stream %v", err)
-		return fmt.Errorf("failed to open an error stream %v", err)
-	}
-
-	_ = errorStream
 
 	/////////////////////////////////////Open a stream for writing transactions/////////////////////////////////////
 	writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
