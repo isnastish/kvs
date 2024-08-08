@@ -2,21 +2,23 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 
 package api;
 
 option go_package = "github.com/isnastish/kvs/proto/api";
 
 service TransactionService {
+    // We might eliminate two functions by using bidirectional stream
     rpc ReadTransactions(google.protobuf.Empty) returns (stream Transaction);
     rpc WriteTransactions(stream Transaction) returns (google.protobuf.Empty);
 }
 
 enum StorageType {
     StorageInt = 0;
-    StorageFloat = 1;
-    StorageStr = 2;
-    StorageUint = 3;
+    StorageUint = 1;
+    StorageFloat = 2;
+    StorageStr = 3;
     StorageMap = 4;
 }
 
@@ -32,13 +34,14 @@ message Map {
     map<string, string> data = 1;
 }
 
-message Value {
-    oneof value {
-        int32 intValue = 1;
-        float floatValue = 2;
-        uint32 uintValue = 3;
-        string strValue = 4;
-        Map mapValue = 5;
+message TransactionData {
+    oneof kind {
+        google.protobuf.NullValue nullValue = 1;
+        int32 intValue = 2;
+        float floatValue = 3;
+        uint32 uintValue = 4;
+        string strValue = 5;
+        Map mapValue = 6; // maps cannot be used in oneof statement
     }
 }
 
@@ -47,6 +50,5 @@ message Transaction {
     StorageType storageType = 2;
     TxnType txnType = 3;
     string key = 4;
-    // Might not be the best solution, but not all the events have value.
-    optional Value value = 5;
+    TransactionData data = 5;
 }

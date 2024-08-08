@@ -52,7 +52,8 @@ type Service struct {
 	txnLogger   TxnLogger
 	running     bool
 
-	txnClient api.TransactionServiceClient
+	txnClient       api.TransactionServiceClient
+	transactionChan chan *api.Transaction
 }
 
 func (s *Service) stringPutHandler(w http.ResponseWriter, req *http.Request) {
@@ -576,9 +577,10 @@ func (s *Service) processSavedTransactions() error {
 }
 
 func (s *Service) writeTransaction(txnType TxnType, storage StorageType, key string, value interface{}) {
-	if !s.settings.TxnDisabled {
-		s.txnLogger.WriteTransaction(txnType, storage, key, value)
-	}
+	s.transactionChan <- &api.Transaction{}
+	// if !s.settings.TxnDisabled {
+	// 	s.txnLogger.WriteTransaction(txnType, storage, key, value)
+	// }
 }
 
 func NewService(settings *ServiceSettings, txnClient api.TransactionServiceClient) *Service {
@@ -632,19 +634,6 @@ func (s *Service) Run() error {
 	// NOTE: We cannot run the server, until we read all the transactions from transaction serivce,
 	// so, if there were any in the database OR a file, we put them into memory storage.
 
-	// This should be a part of a service
-	transactionChan := make(chan *api.Transaction)
-	_ = transactionChan
-
-	/////////////////////////////////////Open a stream for writing transactions/////////////////////////////////////
-	writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
-	if err != nil {
-		log.Logger.Error("Failed to open write transactions stream %v", err)
-		return fmt.Errorf("failed to open a stream for writing transactions %v", err)
-	}
-
-	_ = writeTransactionStream
-
 	//////////////////////////////////open a stream for reading transactions//////////////////////////////////
 	readTransactionStream, err := s.txnClient.ReadTransactions(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -675,6 +664,26 @@ func (s *Service) Run() error {
 		case api.TxnType_TxnIncrBy:
 		}
 	}
+
+	/////////////////////////////////////Open a stream for writing transactions/////////////////////////////////////
+	writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
+	if err != nil {
+		log.Logger.Error("Failed to open write transactions stream %v", err)
+		return fmt.Errorf("failed to open a stream for writing transactions %v", err)
+	}
+
+	go func() {
+		for {
+			select {
+			case transaction := <-s.transactionChan:
+				err := writeTransactionStream.Send(transaction)
+				if err != nil {
+					log.Logger.Error("Failed to send transaction %v", err)
+					// What do we do here? Shut down the service?
+				}
+			}
+		}
+	}()
 
 	////////////////////////////////////////service logic////////////////////////////////////////
 	s.running = true

@@ -28,6 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TransactionServiceClient interface {
+	// We might eliminate two functions by using bidirectional stream
 	ReadTransactions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Transaction], error)
 	WriteTransactions(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Transaction, emptypb.Empty], error)
 }
@@ -76,6 +77,7 @@ type TransactionService_WriteTransactionsClient = grpc.ClientStreamingClient[Tra
 // All implementations must embed UnimplementedTransactionServiceServer
 // for forward compatibility.
 type TransactionServiceServer interface {
+	// We might eliminate two functions by using bidirectional stream
 	ReadTransactions(*emptypb.Empty, grpc.ServerStreamingServer[Transaction]) error
 	WriteTransactions(grpc.ClientStreamingServer[Transaction, emptypb.Empty]) error
 	mustEmbedUnimplementedTransactionServiceServer()
