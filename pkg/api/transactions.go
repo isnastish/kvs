@@ -38,25 +38,49 @@ func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.Transa
 	transactionChan, errorChan := s.service.ReadTransactions()
 	for {
 		select {
-		case transaction := <-transactionChan:
+		case transact := <-transactionChan:
+			var transactionData *api.TransactionData
 
-			var transactionData *api.TransactionData = nil
-			if transaction.TxnType == apitypes.TransactionPut {
+			if transact.Data != nil {
+				switch transact.StorageType {
+				case apitypes.StorageInt:
+					transactionData = &api.TransactionData{
+						Kind: &api.TransactionData_IntValue{IntValue: transact.Data.(int32)},
+					}
 
+				case apitypes.StorageUint:
+					transactionData = &api.TransactionData{
+						Kind: &api.TransactionData_UintValue{UintValue: transact.Data.(uint32)},
+					}
+
+				case apitypes.StorageFloat:
+					transactionData = &api.TransactionData{
+						Kind: &api.TransactionData_FloatValue{FloatValue: transact.Data.(float32)},
+					}
+
+				case apitypes.StorageString:
+					transactionData = &api.TransactionData{
+						Kind: &api.TransactionData_MapValue{
+							MapValue: &api.Map{Data: transact.Data.(map[string]string)},
+						},
+					}
+				}
 			} else {
+				// TODO: Handle NullValue
 				transactionData = &api.TransactionData{}
 			}
 
 			protoTransaction := &api.Transaction{
-				TxnType:     api.TxnType(transaction.TxnType),
-				StorageType: api.StorageType(transaction.StorageType),
-				Timestamp:   timestamppb.New(transaction.Timestamp),
-				Key:         transaction.Key,
+				TxnType:     api.TxnType(transact.TxnType),
+				StorageType: api.StorageType(transact.StorageType),
+				Timestamp:   timestamppb.New(transact.Timestamp),
+				Key:         transact.Key,
 				Data:        transactionData,
 			}
 
 			err := stream.Send(protoTransaction)
 			if err != nil {
+				log.Logger.Error("Failed to send transaction %v", err)
 				return err
 			}
 

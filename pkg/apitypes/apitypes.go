@@ -16,6 +16,7 @@ const (
 
 type TransactionStorageType int32
 
+// NOTE: Rename to DataType?
 // This has to be kept in sync with storage types defined in a .proto file.
 // The order has to match exactly to what we have in proto file.
 const (
