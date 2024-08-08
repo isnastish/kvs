@@ -22,7 +22,8 @@ type FileTransactionLogger struct {
 }
 
 type PostgresTransactionLogger struct {
-	connPool *pgxpool.Pool
+	connPool     *pgxpool.Pool
+	transactChan chan *apitypes.Transaction
 }
 
 type ServiceSettings struct {
@@ -60,7 +61,8 @@ func NewPostgresTransactionLogger() (*PostgresTransactionLogger, error) {
 	}
 
 	logger := &PostgresTransactionLogger{
-		connPool: dbpool,
+		connPool:     dbpool,
+		transactChan: make(chan *apitypes.Transaction),
 	}
 
 	if err := logger.createTables(); err != nil {
@@ -78,9 +80,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 	}
 	defer conn.Release()
 
-	//
 	// Int table
-	//
 	{
 		if _, err := conn.Exec(context.Background(),
 			`CREATE TABLE IF NOT EXISTS "int_keys" (
@@ -105,9 +105,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 		}
 	}
 
-	//
 	// Uint table
-	//
 	{
 		if _, err := conn.Exec(context.Background(),
 			`CREATE TABLE IF NOT EXISTS "uint_keys" (
@@ -132,9 +130,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 		}
 	}
 
-	//
 	// Floats table
-	//
 	{
 		if _, err := conn.Exec(context.Background(),
 			`CREATE TABLE IF NOT EXISTS "float_keys" (
@@ -159,9 +155,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 		}
 	}
 
-	//
 	// String table
-	//
 	{
 		if _, err := conn.Exec(context.Background(),
 			`CREATE TABLE IF NOT EXISTS "string_keys" (
@@ -199,7 +193,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 
 		if _, err := conn.Exec(context.Background(),
 			`CREATE TABLE IF NOT EXISTS "map_transactions" (
-			"id" SERIAL, 
+			"id" SERIAL,
 			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
 			"key_id" SERIAL,
 			"timestampt" TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -213,7 +207,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 			`CREATE TABLE IF NOT EXISTS "map_key_value_pairs" (
 			"transaction_id" SERIAL NOT NULL,
 			"map_key_id" SERIAL NOT NULL,
-			"key" TEXT NOT NULL, 
+			"key" TEXT NOT NULL,
 			"value" TEXT NOT NULL,
 			FOREIGN KEY("map_key_id") REFERENCES "map_keys"("id"),
 			FOREIGN KEY("transaction_id") REFERENCES "map_transactions"("id"));`); err != nil {
@@ -333,17 +327,188 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 		{
 			//  TODO: Read map transactions
 		}
+
+		// TODO: Don't forget to send io.EOF at the end
 	}()
 
 	return transactionChan, errorChan
 }
 
-func (l *PostgresTransactionLogger) WriteTransaction(*apitypes.Transaction) {
+func (l *PostgresTransactionLogger) WriteTransaction(transact *apitypes.Transaction) {
+	l.transactChan <- transact
+}
 
+func (l *PostgresTransactionLogger) insertTransactionKey(dbConn *pgxpool.Conn, transact *apitypes.Transaction, table string) (*int32, error) {
+	// Get key's id from the table if exists, if it doesn't, insert it into a table and get its id
+	query := fmt.Sprintf(`SELECT "id" FROM "%s" WHERE "key" = ($1)`, table)
+	rows, _ := dbConn.Query(context.Background(), query, transact.Key)
+	keyId, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Insert new key into keys table and return an id
+			query := fmt.Sprintf(`INSERT INTO "%s" ("key") values ($1) RETURNING "id";`, table)
+			rows, err = dbConn.Query(context.Background(), query, transact.Key)
+			keyId, err = pgx.CollectOneRow(rows, pgx.RowTo[int32])
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert key into a table %s, %v", table, err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to retrive key id from a table %s, %v", table, err)
+		}
+	}
+
+	return &keyId, nil
 }
 
 func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 	errorChan := make(chan error)
+
+	go func() {
+		dbConn, err := l.connPool.Acquire(context.Background())
+		if err != nil {
+			errorChan <- fmt.Errorf("failed to acquire database connection from pool %v", err)
+			return
+		}
+		defer dbConn.Release()
+
+		for {
+			select {
+			case transact := <-l.transactChan:
+				switch transact.StorageType {
+				case apitypes.StorageInt:
+					keyId, err := l.insertTransactionKey(dbConn, transact, "int_keys")
+					if err != nil {
+						log.Logger.Error("Failed to retrieve transaction key id %v", err)
+						errorChan <- err
+						return
+					}
+
+					_, err = dbConn.Exec(context.Background(),
+						`INSERT INTO "integer_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						VALUES ($1, $2, $3, $4);`,
+						transact.Timestamp,
+						apitypes.TransactionTypeName[int32(transact.TxnType)],
+						*keyId,
+						transact.Data.(int32),
+					)
+
+					if err != nil {
+						log.Logger.Error("Failed to write a int transaction %v", err)
+						errorChan <- fmt.Errorf("failed to write int transaction %v", err)
+						return
+					}
+
+				case apitypes.StorageUint:
+					keyId, err := l.insertTransactionKey(dbConn, transact, "uint_keys")
+					if err != nil {
+						log.Logger.Error("Failed to retrieve transaction key id %v", err)
+						errorChan <- err
+						return
+					}
+
+					_, err = dbConn.Exec(context.Background(),
+						`INSERT INTO "uint_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						VALUES ($1, $2, $3, $4);`,
+						transact.Timestamp,
+						apitypes.TransactionTypeName[int32(transact.TxnType)],
+						*keyId,
+						transact.Data.(uint32),
+					)
+
+					if err != nil {
+						log.Logger.Error("Failed to write a uint transaction %v", err)
+						errorChan <- fmt.Errorf("failed to write uint transaction %v", err)
+						return
+					}
+
+				case apitypes.StorageFloat:
+					keyId, err := l.insertTransactionKey(dbConn, transact, "float_keys")
+					if err != nil {
+						log.Logger.Error("Failed to retrieve transaction key id %v", err)
+						errorChan <- err
+						return
+					}
+
+					_, err = dbConn.Exec(context.Background(),
+						`INSERT INTO "float_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						VALUES ($1, $2, $3, $4);`,
+						transact.Timestamp,
+						apitypes.TransactionTypeName[int32(transact.TxnType)],
+						*keyId,
+						transact.Data.(float32),
+					)
+
+					if err != nil {
+						log.Logger.Error("Failed to write a float transaction %v", err)
+						errorChan <- fmt.Errorf("failed to write float transaction %v", err)
+						return
+					}
+
+				case apitypes.StorageString:
+					keyId, err := l.insertTransactionKey(dbConn, transact, "string_keys")
+					if err != nil {
+						log.Logger.Error("Failed to retrieve transaction key id %v", err)
+						errorChan <- err
+						return
+					}
+
+					_, err = dbConn.Exec(context.Background(),
+						`INSERT INTO "string_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						VALUES ($1, $2, $3, $4);`,
+						transact.Timestamp,
+						apitypes.TransactionTypeName[int32(transact.TxnType)],
+						*keyId,
+						transact.Data.(float32),
+					)
+
+					if err != nil {
+						log.Logger.Error("Failed to write a string transaction %v", err)
+						errorChan <- fmt.Errorf("failed to write string transaction %v", err)
+						return
+					}
+
+				case apitypes.StorageMap:
+					keyId, err := l.insertTransactionKey(dbConn, transact, "map_keys")
+					if err != nil {
+						log.Logger.Error("Failed to retrieve transaction key id %v", err)
+						errorChan <- err
+						return
+					}
+
+					// NOTE: Maybe it's possible to use nested insert
+					rows, _ := dbConn.Query(context.Background(),
+						`INSERT INTO "map_transactions" ("timestamp", "transaction_type", "key_id") VALUES ($1, $2, $3) RETURNING "id";`,
+						transact.Timestamp,
+						apitypes.TransactionTypeName[int32(transact.TxnType)],
+						*keyId,
+					)
+					transactId, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+					if err != nil {
+						log.Logger.Error("Failed to query transaction id %v", err)
+						errorChan <- fmt.Errorf("failed to query transaction id %v", err)
+						return
+					}
+
+					if transact.Data != nil {
+						batch := &pgx.Batch{}
+						for key, value := range transact.Data.(map[string]string) {
+							batch.Queue(
+								`INSERT INTO "map_key_value_pairs" ("transaction_id", "map_key_id", "key", "value") 
+								VALUES ($1, $2, $3, $4);`,
+								transactId, *keyId, transact.Key, key, value)
+						}
+
+						err = dbConn.SendBatch(context.Background(), batch).Close()
+						if err != nil {
+							log.Logger.Error("Failed to insert map key value pairs %v", err)
+							errorChan <- fmt.Errorf("failed to insert into map key value pairs table %v", err)
+							return
+						}
+					}
+				}
+			}
+		}
+	}()
 
 	return errorChan
 }
