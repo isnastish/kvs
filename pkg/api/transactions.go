@@ -35,6 +35,8 @@ func NewTransactionServer(service *txn.TransactionService) *transactionServer {
 }
 
 func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.TransactionService_ReadTransactionsServer) error {
+	log.Logger.Info("ReadTransactions rpc was called")
+
 	transactionChan, errorChan := s.service.ReadTransactions()
 	for {
 		select {
@@ -95,6 +97,8 @@ func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.Transa
 }
 
 func (s *transactionServer) WriteTransactions(stream api.TransactionService_WriteTransactionsServer) error {
+	log.Logger.Info("WriteTransactions rpc was called")
+
 	serviceErrorChan := s.service.HandleTransactions()
 
 	receivedTransactionChan := make(chan *api.Transaction)

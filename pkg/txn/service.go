@@ -118,7 +118,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 		}
 
 		if _, err := conn.Exec(context.Background(),
-			`CREATE TABLE IF NOT EXIST "uint_transactions" (
+			`CREATE TABLE IF NOT EXISTS "uint_transactions" (
 			"id" SERIAL, 
 			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
 			"key_id" SERIAL,
@@ -143,7 +143,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 		}
 
 		if _, err := conn.Exec(context.Background(),
-			`CREATE TABLE IF NOT EXIST "float_transactions" (
+			`CREATE TABLE IF NOT EXISTS "float_transactions" (
 			"id" SERIAL,
 			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
 			"key_id" SERIAL,
@@ -173,9 +173,9 @@ func (l *PostgresTransactionLogger) createTables() error {
 			"transaction_type" CHARACTER VARYING(32) NOT NULL, 
 			"key_id" SERIAL, 
 			"value" TEXT, 
-			"timestamp" TIMESTAMP NOT NULL DEFAULT NOW()
+			"timestamp" TIMESTAMP NOT NULL DEFAULT NOW(),
 			PRIMARY KEY("id"),
-			FOREIGN KEY("key_id") REFERENCE "string_keys"("id") ON DELETE CASCADE);`); err != nil {
+			FOREIGN KEY("key_id") REFERENCES "string_keys"("id") ON DELETE CASCADE);`); err != nil {
 
 			return fmt.Errorf("failed to create string transactions table %v", err)
 		}
@@ -199,7 +199,7 @@ func (l *PostgresTransactionLogger) createTables() error {
 			"key_id" SERIAL,
 			"timestampt" TIMESTAMP NOT NULL DEFAULT NOW(),
 			PRIMARY KEY("id"),
-			FOREIGN KEY("key_id") REFERENCE "map_keys"("id") ON DELETE CASCADE);`); err != nil {
+			FOREIGN KEY("key_id") REFERENCES "map_keys"("id") ON DELETE CASCADE);`); err != nil {
 
 			return fmt.Errorf("failed to create map transactions table %v", err)
 		}

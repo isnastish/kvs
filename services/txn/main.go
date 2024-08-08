@@ -28,6 +28,8 @@ func main() {
 		}
 		transactLogger = postgresLogger
 
+		log.Logger.Info("Successfully connected to database")
+
 	case "file":
 		// TODO: Path as a command line argument.
 		const filepath = ""

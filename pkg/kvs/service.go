@@ -12,7 +12,7 @@ import (
 	"unicode"
 
 	"github.com/gorilla/mux"
-	"google.golang.org/protobuf/types/known/emptypb"
+	_ "google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/isnastish/kvs/pkg/log"
 	"github.com/isnastish/kvs/pkg/serviceinfo"
@@ -635,55 +635,55 @@ func (s *Service) Run() error {
 	// so, if there were any in the database OR a file, we put them into memory storage.
 
 	//////////////////////////////////open a stream for reading transactions//////////////////////////////////
-	readTransactionStream, err := s.txnClient.ReadTransactions(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		log.Logger.Error("Failed to open read transaction stream %v", err)
-		return fmt.Errorf("failed to open a stream for reading transactions %v", err)
-	}
+	// readTransactionStream, err := s.txnClient.ReadTransactions(context.Background(), &emptypb.Empty{})
+	// if err != nil {
+	// 	log.Logger.Error("Failed to open read transaction stream %v", err)
+	// 	return fmt.Errorf("failed to open a stream for reading transactions %v", err)
+	// }
 
-	for {
-		transaction, err := readTransactionStream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Logger.Error("Failed to read transaction %v", err)
-			return fmt.Errorf("failed to read transaction %v", err)
-		}
+	// for {
+	// 	transaction, err := readTransactionStream.Recv()
+	// 	if err != nil {
+	// 		if err == io.EOF {
+	// 			break
+	// 		}
+	// 		log.Logger.Error("Failed to read transaction %v", err)
+	// 		return fmt.Errorf("failed to read transaction %v", err)
+	// 	}
 
-		// Logic for restoring the storage based on transactions
-		switch transaction.TxnType {
-		case api.TxnType_TxnPut:
+	// 	// Logic for restoring the storage based on transactions
+	// 	switch transaction.TxnType {
+	// 	case api.TxnType_TxnPut:
 
-		case api.TxnType_TxnGet:
+	// 	case api.TxnType_TxnGet:
 
-		case api.TxnType_TxnDel:
+	// 	case api.TxnType_TxnDel:
 
-		case api.TxnType_TxnIncr:
+	// 	case api.TxnType_TxnIncr:
 
-		case api.TxnType_TxnIncrBy:
-		}
-	}
+	// 	case api.TxnType_TxnIncrBy:
+	// 	}
+	// }
 
 	/////////////////////////////////////Open a stream for writing transactions/////////////////////////////////////
-	writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
-	if err != nil {
-		log.Logger.Error("Failed to open write transactions stream %v", err)
-		return fmt.Errorf("failed to open a stream for writing transactions %v", err)
-	}
+	// writeTransactionStream, err := s.txnClient.WriteTransactions(context.Background())
+	// if err != nil {
+	// 	log.Logger.Error("Failed to open write transactions stream %v", err)
+	// 	return fmt.Errorf("failed to open a stream for writing transactions %v", err)
+	// }
 
-	go func() {
-		for {
-			select {
-			case transaction := <-s.transactionChan:
-				err := writeTransactionStream.Send(transaction)
-				if err != nil {
-					log.Logger.Error("Failed to send transaction %v", err)
-					// What do we do here? Shut down the service?
-				}
-			}
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case transaction := <-s.transactionChan:
+	// 			err := writeTransactionStream.Send(transaction)
+	// 			if err != nil {
+	// 				log.Logger.Error("Failed to send transaction %v", err)
+	// 				// What do we do here? Shut down the service?
+	// 			}
+	// 		}
+	// 	}
+	// }()
 
 	////////////////////////////////////////service logic////////////////////////////////////////
 	s.running = true
