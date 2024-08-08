@@ -3,6 +3,7 @@ package txn
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -328,7 +329,8 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 			//  TODO: Read map transactions
 		}
 
-		// TODO: Don't forget to send io.EOF at the end
+		// Make a signal that we're done with reading transactions.
+		errorChan <- io.EOF
 	}()
 
 	return transactionChan, errorChan

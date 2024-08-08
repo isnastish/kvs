@@ -61,8 +61,8 @@ func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.Transa
 			}
 
 		case err := <-errorChan:
-			// TODO: service.ReadTransactions should return an io.EOF to signify the end of transactions
 			if err == io.EOF {
+				log.Logger.Info("Done reading transactions")
 				return nil
 			}
 			return err
