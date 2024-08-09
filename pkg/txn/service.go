@@ -320,7 +320,7 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 					SELECT "id" FROM "string_keys"
 				);`
 
-			err := l.readTransactions(dbConn, query, transactionChan, apitypes.StorageFloat)
+			err := l.readTransactions(dbConn, query, transactionChan, apitypes.StorageString)
 			if err != nil {
 				log.Logger.Error("Failed to read string transactions %v", err)
 				errorChan <- fmt.Errorf("Failed to read string transactions %v", err)
