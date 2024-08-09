@@ -228,7 +228,8 @@ func (l *PostgresTransactionLogger) readTransactions(dbConn *pgxpool.Conn, dbQue
 			txnType  string
 		)
 		err := row.Scan(&transact.Timestamp, &txnType, &transact.Key, &transact.Data)
-		if err != nil {
+		if err == nil {
+			log.Logger.Info("Retrieved transaction type %s", txnType)
 			transact.TxnType = apitypes.TransactionType(apitypes.TransactionTypeValue[txnType])
 		}
 		return transact, err

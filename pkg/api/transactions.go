@@ -1,5 +1,10 @@
 package api
 
+// [x] NOTE: All trannsactions are read as Put transactions for some reason from a database,
+// we would have to investigate that.
+// [ ] When reading transactions from a database and sending them over the network,
+//	   the values are not assigned properly. Thus, querying a key will result in 0 value for integer storage.
+
 import (
 	"io"
 
