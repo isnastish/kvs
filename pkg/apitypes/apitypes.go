@@ -1,6 +1,9 @@
 package apitypes
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type TransactionType int32
 
@@ -27,6 +30,35 @@ const (
 	StorageMap
 )
 
+type Transaction struct {
+	StorageType TransactionStorageType
+	TxnType     TransactionType
+	Timestamp   time.Time
+	Key         string
+	Data        interface{}
+	// NOTE: The reason we have a separation between key and a data,
+	// instead of representing everything as a single map,
+	// is because data is optional and could be nil
+	// We could use map[string]interface{} as well.
+}
+
+var (
+	StorageTypeName = map[int32]string{
+		0: "StorageInt",
+		1: "StorageUint",
+		2: "StorageFloat",
+		3: "StorageStr",
+		4: "StorageMap",
+	}
+	StorageTypeValue = map[string]int32{
+		"StorageInt":   0,
+		"StorageUint":  1,
+		"StorageFloat": 2,
+		"StorageStr":   3,
+		"StorageMap":   4,
+	}
+)
+
 var (
 	TransactionTypeName = map[int32]string{
 		0: "TransactionPut",
@@ -44,14 +76,11 @@ var (
 	}
 )
 
-type Transaction struct {
-	StorageType TransactionStorageType
-	TxnType     TransactionType
-	Timestamp   time.Time
-	Key         string
-	Data        interface{}
-	// NOTE: The reason we have a separation between key and a data,
-	// instead of representing everything as a single map,
-	// is because data is optional and could be nil
-	// We could use map[string]interface{} as well.
+func (t *Transaction) String() string {
+	if t == nil {
+		return ""
+	}
+	return fmt.Sprintf("storage type: %s, transaction type: %s, timestamp: %s, key: %s, data: %v",
+		StorageTypeName[int32(t.StorageType)], TransactionTypeName[int32(t.TxnType)], t.Timestamp.Format(time.DateTime),
+		t.Key, t.Data)
 }

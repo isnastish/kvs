@@ -4,17 +4,8 @@ import (
 	"sync"
 
 	"github.com/pingcap/errors"
-)
 
-type StorageType int
-
-const (
-	_ StorageType = iota
-	storageInt
-	storageFloat
-	storageString
-	storageUint
-	storageMap
+	"github.com/isnastish/kvs/pkg/apitypes"
 )
 
 type Storage interface {
@@ -53,7 +44,7 @@ type MapStorage struct {
 }
 
 type CmdResult struct {
-	storageType StorageType
+	storageType apitypes.TransactionStorageType
 	args        []interface{}
 	result      interface{}
 	err         error
@@ -104,7 +95,7 @@ func (s *MapStorage) Put(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	s.data[hashKey] = cmd.args[0].(map[string]string)
 	s.Unlock()
-	cmd.storageType = storageMap
+	cmd.storageType = apitypes.StorageMap
 	return cmd
 }
 
@@ -112,7 +103,7 @@ func (s *MapStorage) Get(hashKey string, cmd *CmdResult) *CmdResult {
 	s.RLock()
 	val, exists := s.data[hashKey]
 	s.RUnlock()
-	cmd.storageType = storageMap
+	cmd.storageType = apitypes.StorageMap
 	if !exists {
 		cmd.err = errors.NotFoundf("Key %s", hashKey)
 		return cmd
@@ -126,7 +117,7 @@ func (s *MapStorage) Del(hashKey string, cmd *CmdResult) *CmdResult {
 	_, deleted := s.data[hashKey]
 	delete(s.data, hashKey)
 	s.Unlock()
-	cmd.storageType = storageMap
+	cmd.storageType = apitypes.StorageMap
 	cmd.result = deleted
 	return cmd
 }
@@ -135,7 +126,7 @@ func (s *StrStorage) Put(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	s.data[hashKey] = cmd.args[0].(string)
 	s.Unlock()
-	cmd.storageType = storageString
+	cmd.storageType = apitypes.StorageString
 	return cmd
 }
 
@@ -143,7 +134,7 @@ func (s *StrStorage) Get(hashKey string, cmd *CmdResult) *CmdResult {
 	s.RLock()
 	val, exists := s.data[hashKey]
 	s.RUnlock()
-	cmd.storageType = storageString
+	cmd.storageType = apitypes.StorageString
 	if !exists {
 		cmd.err = errors.NotFoundf("Key %s", hashKey)
 		return cmd
@@ -157,7 +148,7 @@ func (s *StrStorage) Del(hashKey string, cmd *CmdResult) *CmdResult {
 	_, deleted := s.data[hashKey]
 	delete(s.data, hashKey)
 	s.Unlock()
-	cmd.storageType = storageString
+	cmd.storageType = apitypes.StorageString
 	cmd.result = deleted
 	return cmd
 }
@@ -166,7 +157,7 @@ func (s *IntStorage) Put(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	s.data[hashKey] = cmd.args[0].(int32)
 	s.Unlock()
-	cmd.storageType = storageInt
+	cmd.storageType = apitypes.StorageInt
 	return cmd
 }
 
@@ -174,7 +165,7 @@ func (s *IntStorage) Get(hashKey string, cmd *CmdResult) *CmdResult {
 	s.RLock()
 	val, exists := s.data[hashKey]
 	s.RUnlock()
-	cmd.storageType = storageInt
+	cmd.storageType = apitypes.StorageInt
 	if !exists {
 		cmd.err = errors.NotFoundf("Key %s", hashKey)
 		return cmd
@@ -188,7 +179,7 @@ func (s *IntStorage) Del(hashKey string, cmd *CmdResult) *CmdResult {
 	_, deleted := s.data[hashKey]
 	delete(s.data, hashKey)
 	s.Unlock()
-	cmd.storageType = storageInt
+	cmd.storageType = apitypes.StorageInt
 	cmd.result = deleted
 	return cmd
 }
@@ -196,7 +187,7 @@ func (s *IntStorage) Del(hashKey string, cmd *CmdResult) *CmdResult {
 func (s *IntStorage) Incr(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	defer s.Unlock()
-	cmd.storageType = storageInt
+	cmd.storageType = apitypes.StorageInt
 	val, exists := s.data[hashKey]
 	// If the value doesn't exist, we should created a new entry with the specified key,
 	// and set the value to zero
@@ -213,7 +204,7 @@ func (s *IntStorage) Incr(hashKey string, cmd *CmdResult) *CmdResult {
 func (s *IntStorage) IncrBy(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	defer s.Unlock()
-	cmd.storageType = storageInt
+	cmd.storageType = apitypes.StorageInt
 	val, exists := s.data[hashKey]
 	// The same applies to IncrBy, if the hashKey doesn't exist,
 	// we should create a new one and set the value to cmd.val,
@@ -232,7 +223,7 @@ func (s *FloatStorage) Put(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	s.data[hashKey] = float32(cmd.args[0].(float32))
 	s.Unlock()
-	cmd.storageType = storageFloat
+	cmd.storageType = apitypes.StorageFloat
 	return cmd
 }
 
@@ -240,7 +231,7 @@ func (s *FloatStorage) Get(hashKey string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	val, exists := s.data[hashKey]
 	s.Unlock()
-	cmd.storageType = storageFloat
+	cmd.storageType = apitypes.StorageFloat
 	if !exists {
 		cmd.err = errors.NotFoundf("Key %s", hashKey)
 		return cmd
@@ -254,7 +245,7 @@ func (s *FloatStorage) Del(hashKey string, cmd *CmdResult) *CmdResult {
 	_, deleted := s.data[hashKey]
 	delete(s.data, hashKey)
 	s.Unlock()
-	cmd.storageType = storageFloat
+	cmd.storageType = apitypes.StorageFloat
 	cmd.result = deleted
 	return cmd
 }
@@ -263,7 +254,7 @@ func (s *UintStorage) Put(key string, cmd *CmdResult) *CmdResult {
 	s.Lock()
 	s.data[key] = cmd.args[0].(uint32)
 	s.Unlock()
-	cmd.storageType = storageUint
+	cmd.storageType = apitypes.StorageUint
 	return cmd
 }
 
@@ -271,7 +262,7 @@ func (s *UintStorage) Get(key string, cmd *CmdResult) *CmdResult {
 	s.RLock()
 	val, exists := s.data[key]
 	s.RUnlock()
-	cmd.storageType = storageUint
+	cmd.storageType = apitypes.StorageUint
 	if !exists {
 		cmd.err = errors.NotFoundf("Key %s", key)
 		return cmd
@@ -285,7 +276,7 @@ func (s *UintStorage) Del(key string, cmd *CmdResult) *CmdResult {
 	_, deleted := s.data[key]
 	delete(s.data, key)
 	s.Unlock()
-	cmd.storageType = storageUint
+	cmd.storageType = apitypes.StorageUint
 	cmd.result = deleted
 	return cmd
 }

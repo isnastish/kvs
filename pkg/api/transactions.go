@@ -35,12 +35,14 @@ func NewTransactionServer(service *txn.TransactionService) *transactionServer {
 }
 
 func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.TransactionService_ReadTransactionsServer) error {
-	log.Logger.Info("ReadTransactions rpc was called")
+	log.Logger.Info("ReadWriteTransactions rpc was called")
 
 	transactionChan, errorChan := s.service.ReadTransactions()
 	for {
 		select {
 		case transact := <-transactionChan:
+			log.Logger.Info("Read transaction %s", transact.String())
+
 			var transactionData *api.TransactionData
 
 			if transact.Data != nil {
@@ -68,8 +70,8 @@ func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.Transa
 					}
 				}
 			} else {
-				// TODO: Handle NullValue
-				transactionData = &api.TransactionData{}
+				// TODO: Should we assign nullvalue like this?
+				transactionData = &api.TransactionData{Kind: &api.TransactionData_NullValue{}}
 			}
 
 			protoTransaction := &api.Transaction{
@@ -107,12 +109,15 @@ func (s *transactionServer) WriteTransactions(stream api.TransactionService_Writ
 	go func() {
 		defer close(streamErrorChan)
 		for {
-			transaction, err := stream.Recv()
+			transact, err := stream.Recv()
 			if err != nil {
 				streamErrorChan <- err
 				return
 			}
-			receivedTransactionChan <- transaction
+
+			log.Logger.Info("Received transaction %s", transact.TxnType.String())
+
+			receivedTransactionChan <- transact
 		}
 	}()
 

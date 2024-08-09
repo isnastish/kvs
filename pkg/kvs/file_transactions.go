@@ -5,7 +5,7 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
-	"time"
+	_ "time"
 
 	"github.com/isnastish/kvs/pkg/log"
 )
@@ -53,9 +53,9 @@ func (l *FileTxnLogger) Close() {
 	defer l.file.Close()
 }
 
-func (l *FileTxnLogger) WriteTransaction(txnType TxnType, storage StorageType, key string, value interface{}) {
-	l.events <- Event{storageType: storage, txnType: txnType, key: key, value: value, timestamp: time.Now()}
-}
+// func (l *FileTxnLogger) WriteTransaction(txnType TxnType, storage StorageType, key string, value interface{}) {
+// 	l.events <- Event{storageType: storage, txnType: txnType, key: key, value: value, timestamp: time.Now()}
+// }
 
 func (l *FileTxnLogger) ProcessTransactions(shutdownContext context.Context) {
 	events := make(chan Event, 16)

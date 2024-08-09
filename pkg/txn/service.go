@@ -238,8 +238,10 @@ func (l *PostgresTransactionLogger) readTransactions(dbConn *pgxpool.Conn, dbQue
 		return err
 	}
 
-	for _, transact := range transactions {
-		transactChan <- transact
+	if len(transactions) > 0 {
+		for _, transact := range transactions {
+			transactChan <- transact
+		}
 	}
 
 	return nil
@@ -253,6 +255,8 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 		defer close(transactionChan)
 		defer close(errorChan)
 
+		log.Logger.Info("txn: Start reading transactions")
+
 		dbConn, err := l.connPool.Acquire(context.Background())
 		if err != nil {
 			errorChan <- fmt.Errorf("failed to acquire database connection from the poool %v", err)
@@ -262,7 +266,7 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 
 		// Query Int transactions
 		{
-			query := `SELECT "timestamp", "type", "key", "value"
+			query := `SELECT "timestamp", "transaction_type", "key", "value"
 				FROM "integer_transactions" JOIN "int_keys" ON "int_keys"."id" = "integer_transactions"."key_id"
 				WHERE "integer_transactions"."key_id" IN (
 					SELECT "id" FROM "int_keys"
@@ -294,7 +298,7 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 
 		// Query float transactions
 		{
-			query := `SELECT "timestamp", "type", "key", "value"
+			query := `SELECT "timestamp", "transaction_type", "key", "value"
 				FROM "float_transactions" JOIN "float_keys" ON "float_keys"."id" = "key_id"
 				WHERE "key_id" IN (
 					SELECT "id" FROM "float_keys"
@@ -310,7 +314,7 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 
 		// Query String transactions
 		{
-			query := `SELECT "timestamp", "type", "key", "value" 
+			query := `SELECT "timestamp", "transaction_type", "key", "value" 
 				FROM "string_transactions" JOIN "string_keys" ON "string_keys"."id" = "key_id"
 				WHERE "key_id" IN (
 					SELECT "id" FROM "string_keys"
@@ -331,6 +335,8 @@ func (l *PostgresTransactionLogger) ReadTransactions() (<-chan *apitypes.Transac
 
 		// Make a signal that we're done with reading transactions.
 		errorChan <- io.EOF
+
+		log.Logger.Info("txn: End reading transactions")
 	}()
 
 	return transactionChan, errorChan
@@ -366,6 +372,9 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 	errorChan := make(chan error)
 
 	go func() {
+		log.Logger.Info("txn: Start processing incoming transactions")
+		defer log.Logger.Info("txn: Finished processing incoming transactions")
+
 		dbConn, err := l.connPool.Acquire(context.Background())
 		if err != nil {
 			errorChan <- fmt.Errorf("failed to acquire database connection from pool %v", err)
@@ -386,12 +395,12 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 					}
 
 					_, err = dbConn.Exec(context.Background(),
-						`INSERT INTO "integer_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						`INSERT INTO "integer_transactions" ("timestamp", "transaction_type", "key_id", "value")
 						VALUES ($1, $2, $3, $4);`,
 						transact.Timestamp,
 						apitypes.TransactionTypeName[int32(transact.TxnType)],
 						*keyId,
-						transact.Data.(int32),
+						transact.Data, // Could be nill for Get/Del transactions .(int32)
 					)
 
 					if err != nil {
@@ -399,6 +408,8 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 						errorChan <- fmt.Errorf("failed to write int transaction %v", err)
 						return
 					}
+
+					log.Logger.Info("Wrote transaction %v", transact.String())
 
 				case apitypes.StorageUint:
 					keyId, err := l.insertTransactionKey(dbConn, transact, "uint_keys")
@@ -409,7 +420,7 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 					}
 
 					_, err = dbConn.Exec(context.Background(),
-						`INSERT INTO "uint_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						`INSERT INTO "uint_transactions" ("timestamp", "transaction_type", "key_id", "value")
 						VALUES ($1, $2, $3, $4);`,
 						transact.Timestamp,
 						apitypes.TransactionTypeName[int32(transact.TxnType)],
@@ -423,6 +434,8 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 						return
 					}
 
+					log.Logger.Info("Wrote transaction %v", transact.String())
+
 				case apitypes.StorageFloat:
 					keyId, err := l.insertTransactionKey(dbConn, transact, "float_keys")
 					if err != nil {
@@ -432,7 +445,7 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 					}
 
 					_, err = dbConn.Exec(context.Background(),
-						`INSERT INTO "float_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						`INSERT INTO "float_transactions" ("timestamp", "transaction_type", "key_id", "value")
 						VALUES ($1, $2, $3, $4);`,
 						transact.Timestamp,
 						apitypes.TransactionTypeName[int32(transact.TxnType)],
@@ -446,6 +459,8 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 						return
 					}
 
+					log.Logger.Info("Wrote transaction %v", transact.String())
+
 				case apitypes.StorageString:
 					keyId, err := l.insertTransactionKey(dbConn, transact, "string_keys")
 					if err != nil {
@@ -455,7 +470,7 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 					}
 
 					_, err = dbConn.Exec(context.Background(),
-						`INSERT INTO "string_transactions" ("timestamp", "transaction_type", "ket_id", "value")
+						`INSERT INTO "string_transactions" ("timestamp", "transaction_type", "key_id", "value")
 						VALUES ($1, $2, $3, $4);`,
 						transact.Timestamp,
 						apitypes.TransactionTypeName[int32(transact.TxnType)],
@@ -468,6 +483,8 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 						errorChan <- fmt.Errorf("failed to write string transaction %v", err)
 						return
 					}
+
+					log.Logger.Info("Wrote transaction %v", transact.String())
 
 				case apitypes.StorageMap:
 					keyId, err := l.insertTransactionKey(dbConn, transact, "map_keys")
@@ -507,6 +524,8 @@ func (l *PostgresTransactionLogger) HandleTransactions() <-chan error {
 							return
 						}
 					}
+
+					log.Logger.Info("Wrote transaction %v", transact.String())
 				}
 			}
 		}
