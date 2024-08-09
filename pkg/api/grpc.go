@@ -17,15 +17,46 @@ type GrpcService interface {
 	ServiceDesc() *grpc.ServiceDesc
 }
 
-func NewGRPCServer(services ...GrpcService) *GRPCServer {
+///////////////////////////////////////////////////////////////////////////////////////
+//Interceptors
+
+type wrappedStream struct {
+	grpc.ServerStream
+}
+
+func (w *wrappedStream) RecvMsg(m interface{}) error {
+	log.Logger.Info("====== [Server Stream Interceptor Wrapper] Received message")
+	return w.ServerStream.RecvMsg(m)
+}
+
+func (w *wrappedStream) SendMsg(m interface{}) error {
+	log.Logger.Info("====== [Server Stream Interceptro Wrapper] Send message")
+	return w.ServerStream.SendMsg(m)
+}
+
+func newWrappedStream(s grpc.ServerStream) grpc.ServerStream {
+	return &wrappedStream{}
+}
+
+func transactionServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	log.Logger.Info("====== [Server Stream Interceptor] %s", info.FullMethod)
+	err := handler(srv, newWrappedStream(ss))
+	if err != nil {
+		log.Logger.Error("RPC failed with an error %v", err)
+	}
+	return err
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+func NewGRPCServer(service GrpcService, opt ...grpc.ServerOption) *GRPCServer {
 	server := &GRPCServer{
-		server: grpc.NewServer(),
+		server: grpc.NewServer(opt...),
 	}
 
-	for _, service := range services {
-		desc := service.ServiceDesc()
-		server.server.RegisterService(desc, service)
-	}
+	// Could be put into a for loop for multiple services
+	desc := service.ServiceDesc()
+	server.server.RegisterService(desc, service)
 
 	return server
 }

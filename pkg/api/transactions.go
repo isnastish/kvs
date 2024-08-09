@@ -50,7 +50,7 @@ func (s *transactionServer) ReadTransactions(_ *emptypb.Empty, stream api.Transa
 
 			var transactionData *api.TransactionData
 
-			if transact.Data != nil {
+			if transact.TxnType == apitypes.TransactionPut {
 				switch transact.StorageType {
 				case apitypes.StorageInt:
 					transactionData = &api.TransactionData{

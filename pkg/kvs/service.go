@@ -792,6 +792,8 @@ func (s *Service) Run() error {
 				value = transact.Data.GetMapValue().GetData()
 			}
 
+			log.Logger.Info("Value %v", value)
+
 			if cmd := s.storage[txnStorageType].Put(transact.Key, newCmdResult(value)); cmd.err != nil {
 				log.Logger.Error("Failed to store %s transaction %v",
 					apitypes.TransactionTypeName[int32(apitypes.TransactionDel)], cmd.err)
